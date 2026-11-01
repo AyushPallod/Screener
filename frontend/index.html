@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StockRadar — NSE/BSE Screener</title>
+  <meta name="description" content="Powerful NSE and BSE stock screener with RS Rating, sector analysis, and entry/exit tracking. Built for momentum investors." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/styles.css" />
+  <!-- TradingView Lightweight Charts -->
+  <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+  <div id="app">
+    <!-- Sidebar -->
+    <aside id="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-icon">📡</div>
+        <span class="logo-text">StockRadar</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item" data-page="home" id="nav-home">
+          <span class="nav-icon">🏠</span><span class="nav-label">Home</span>
+        </a>
+        <a href="#" class="nav-item active" data-page="screener" id="nav-screener">
+          <span class="nav-icon">🔍</span><span class="nav-label">Screener</span>
+        </a>
+        <a href="#" class="nav-item" data-page="industries" id="nav-industries">
+          <span class="nav-icon">🏭</span><span class="nav-label">Industries</span>
+        </a>
+        <a href="#" class="nav-item" data-page="tracker" id="nav-tracker">
+          <span class="nav-icon">📊</span>
+          <span class="nav-label">Tracker</span>
+          <span class="nav-badge" id="tracker-badge" style="display:none">0</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="market-status" id="market-status">
+          <span class="status-dot"></span>
+          <span id="market-status-text">Loading...</span>
+        </div>
+        <div class="last-updated" id="last-updated">—</div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main id="main-content">
+      <!-- HOME PAGE -->
+      <div id="page-home" class="page hidden">
+        <div class="home-hero">
+          <h1 class="hero-title">NSE & BSE Stock Screener</h1>
+          <p class="hero-subtitle">Find market leaders with RS Rating, EMA filters, sector analysis and daily entry/exit tracking.</p>
+          <div class="hero-actions">
+            <button class="btn-primary" onclick="App.navigate('screener')">Open Screener →</button>
+            <button class="btn-outline" onclick="App.navigate('industries')">View Sectors →</button>
+          </div>
+        </div>
+        <div class="home-stats" id="home-stats">
+          <div class="stat-card"><div class="stat-label">NSE Stocks</div><div class="stat-val" id="stat-nse">—</div></div>
+          <div class="stat-card"><div class="stat-label">BSE Stocks</div><div class="stat-val" id="stat-bse">—</div></div>
+          <div class="stat-card"><div class="stat-label">RS≥80 Today</div><div class="stat-val" id="stat-rs80">—</div></div>
+          <div class="stat-card"><div class="stat-label">New Entries</div><div class="stat-val up" id="stat-entries">—</div></div>
+          <div class="stat-card"><div class="stat-label">New Exits</div><div class="stat-val down" id="stat-exits">—</div></div>
+        </div>
+      </div>
+
+      <!-- SCREENER PAGE -->
+      <div id="page-screener" class="page">
+        <div class="page-header">
+          <div class="page-title-row">
+            <div style="display:flex;align-items:center;gap:16px;">
+              <h1>Screener</h1>
+              <div class="stock-search-wrap">
+                <span class="search-lens">🔍</span>
+                <input type="text" class="stock-search-input" id="screener-search-input" placeholder="Search company, SME, or BSE code..." autocomplete="off" />
+                <button class="search-clear-btn" id="screener-search-clear" style="display:none;" onclick="SearchComponent.clear('screener')">✕</button>
+                <div class="search-dropdown-menu hidden" id="screener-search-dropdown"></div>
+              </div>
+            </div>
+            <div class="exchange-toggle">
+              <button class="exch-btn active" data-exch="NSE" id="exch-nse">NSE</button>
+              <button class="exch-btn" data-exch="BSE" id="exch-bse">BSE</button>
+              <button class="exch-btn" data-exch="BOTH" id="exch-both">BOTH</button>
+            </div>
+          </div>
+
+          <!-- Filter Bar -->
+          <div class="filter-bar" id="filter-bar">
+            <div class="filter-chip active" id="chip-rs80" data-filter="rs80" onclick="Screener.toggleFilter('rs80')">
+              ★ RS ≥ 80
+            </div>
+            <div class="filter-chip" id="chip-ema200" data-filter="ema200" onclick="Screener.toggleFilter('ema200')">
+              Above EMA 200
+            </div>
+            <div class="filter-chip" id="chip-ema50" data-filter="ema50" onclick="Screener.toggleFilter('ema50')">
+              Above EMA 50
+            </div>
+            <div class="filter-chip" id="chip-price10" data-filter="price10" onclick="Screener.toggleFilter('price10')">
+              Price ≥ ₹10
+            </div>
+            <div class="filter-chip" id="chip-volume" data-filter="volume" onclick="Screener.toggleFilter('volume')">
+              Volume Surge
+            </div>
+
+            <!-- Advanced Filters -->
+            <div class="filter-dropdown" id="filter-mktcap">
+              <button class="filter-dropdown-btn" onclick="Screener.toggleDropdown('mktcap')">
+                Market Cap ▾
+              </button>
+              <div class="filter-dropdown-menu" id="dropdown-mktcap">
+                <label>Min Cap (₹ Cr)</label>
+                <input type="number" id="min-mktcap" placeholder="0" value="0" class="filter-input" />
+                <button class="apply-btn" onclick="Screener.applyFilters()">Apply</button>
+              </div>
+            </div>
+
+            <div class="filter-dropdown" id="filter-turnover">
+              <button class="filter-dropdown-btn" onclick="Screener.toggleDropdown('turnover')">
+                Turnover ▾
+              </button>
+              <div class="filter-dropdown-menu" id="dropdown-turnover">
+                <label>Min Avg Turnover (₹ Cr / 30d)</label>
+                <input type="number" id="min-turnover" placeholder="0" value="0" class="filter-input" />
+                <button class="apply-btn" onclick="Screener.applyFilters()">Apply</button>
+              </div>
+            </div>
+
+            <div class="filter-dropdown" id="filter-rs-range">
+              <button class="filter-dropdown-btn" onclick="Screener.toggleDropdown('rs-range')">
+                RS Range ▾
+              </button>
+              <div class="filter-dropdown-menu" id="dropdown-rs-range">
+                <label>RS Rating Range</label>
+                <div class="range-row">
+                  <input type="number" id="min-rs" placeholder="80" value="80" min="1" max="99" class="filter-input half" />
+                  <span>–</span>
+                  <input type="number" id="max-rs" placeholder="99" value="99" min="1" max="99" class="filter-input half" />
+                </div>
+                <button class="apply-btn" onclick="Screener.applyFilters()">Apply</button>
+              </div>
+            </div>
+
+            <div class="filter-right">
+              <select id="sector-filter" class="sector-select" onchange="Screener.applyFilters()">
+                <option value="">All Sectors</option>
+              </select>
+              <button class="btn-icon" title="Export CSV" onclick="Screener.exportCSV()">⬇ CSV</button>
+              <span class="result-count" id="result-count">— results</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Loading skeleton -->
+        <div id="screener-loading" class="loading-overlay">
+          <div class="loading-spinner"></div>
+          <p>Fetching market data & calculating RS Ratings…</p>
+          <p class="loading-sub">This may take 30–60 seconds on first load (fetching historical prices)</p>
+        </div>
+
+        <!-- Table -->
+        <div class="table-container" id="screener-table-container" style="display:none">
+          <table class="data-table" id="screener-table">
+            <thead>
+              <tr>
+                <th class="sortable" data-col="symbol" onclick="Screener.sort('symbol')">Symbol</th>
+                <th class="sortable" data-col="name" onclick="Screener.sort('name')">Name</th>
+                <th>Exchange</th>
+                <th class="sortable" data-col="sub_industry" onclick="Screener.sort('sub_industry')">Sub-Industry</th>
+                <th class="sortable num" data-col="market_cap" onclick="Screener.sort('market_cap')">Mkt Cap (Cr)</th>
+                <th class="sortable num" data-col="close" onclick="Screener.sort('close')">Close</th>
+                <th class="sortable num" data-col="pe" onclick="Screener.sort('pe')">PE</th>
+                <th class="sortable num" data-col="rs_rating" onclick="Screener.sort('rs_rating')">RS ★</th>
+                <th class="sortable num" data-col="rs_3m" onclick="Screener.sort('rs_3m')">RS 3M</th>
+                <th class="sortable num" data-col="from_52w_high" onclick="Screener.sort('from_52w_high')">52W High</th>
+                <th>EMA</th>
+              </tr>
+            </thead>
+            <tbody id="screener-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- INDUSTRIES PAGE -->
+      <div id="page-industries" class="page hidden">
+        <div class="page-header">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <h1>Industries & Sectors</h1>
+            <div class="stock-search-wrap" style="width:280px;">
+              <span class="search-lens">🔍</span>
+              <input type="text" class="stock-search-input" id="industries-search-input" placeholder="Search company, SME, or BSE code..." autocomplete="off" />
+              <button class="search-clear-btn" id="industries-search-clear" style="display:none;" onclick="SearchComponent.clear('industries')">✕</button>
+              <div class="search-dropdown-menu hidden" id="industries-search-dropdown"></div>
+            </div>
+          </div>
+          <div class="industries-controls">
+            <div class="exchange-toggle">
+              <button class="exch-btn active ind-exch-btn" data-exch="NSE">NSE</button>
+              <button class="exch-btn ind-exch-btn" data-exch="BSE">BSE</button>
+              <button class="exch-btn ind-exch-btn" data-exch="BOTH">BOTH</button>
+            </div>
+            <div class="period-tabs" id="period-tabs">
+              <button class="period-tab" data-period="today">Today</button>
+              <button class="period-tab active" data-period="1w">1W</button>
+              <button class="period-tab" data-period="1m">1M</button>
+              <button class="period-tab" data-period="3m">3M</button>
+              <button class="period-tab" data-period="6m">6M</button>
+              <button class="period-tab" data-period="ytd">YTD</button>
+              <button class="period-tab" data-period="1y">1Y</button>
+            </div>
+            <div class="group-tabs" id="group-tabs">
+              <button class="group-tab active" data-group="sector" title="Broad market sectors (27 categories)">Sector</button>
+              <button class="group-tab" data-group="industry" title="Mid-level industry categories">Industry</button>
+              <button class="group-tab" data-group="sub_industry" title="Granular sub-industry niches">Sub-Industry</button>
+            </div>
+            <div class="screener-leader-toggle">
+              <button class="filter-chip" id="ind-screener-toggle" onclick="Industries.toggleScreenerLeaders()" title="Show only stocks passing screener (RS ≥ 80, Close > 200 EMA)">⚡ Passed Screener (RS≥80)</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="industries-layout">
+          <!-- Left: Sector List -->
+          <div class="sector-list-panel" id="sector-list-panel">
+            <div class="panel-header">
+              <span id="sector-col-title">Sector</span>
+              <span class="sort-arrows" onclick="Industries.toggleSort()" title="Toggle sort order">↑↓</span>
+              <span id="period-col-title">1W Return</span>
+            </div>
+            <div id="sector-list-loading" class="panel-loading">
+              <div class="loading-spinner small"></div>
+            </div>
+            <div id="sector-list" class="sector-list"></div>
+          </div>
+
+          <!-- Middle: Stocks in Sector -->
+          <div class="sector-stocks-panel" id="sector-stocks-panel">
+            <div class="panel-header" id="sector-stocks-header">
+              <span id="selected-sector-name">Select a sector</span>
+              <div class="panel-actions">
+                <span id="sector-stock-count">—</span>
+                <button class="btn-icon-sm" onclick="Industries.copyList()" title="Copy symbols">Copy</button>
+              </div>
+            </div>
+            <div id="sector-stocks-loading" class="panel-loading hidden">
+              <div class="loading-spinner small"></div>
+            </div>
+            <div id="sector-stocks-list" class="sector-stocks-list">
+              <div class="empty-state">← Select a sector to view its stocks</div>
+            </div>
+          </div>
+
+          <!-- Right: Chart -->
+          <div class="chart-panel" id="chart-panel">
+            <div class="chart-header" id="chart-header">
+              <div class="chart-stock-info">
+                <div id="chart-symbol" class="chart-symbol">—</div>
+                <div id="chart-price" class="chart-price">—</div>
+                <div class="chart-indicators">
+                  <span class="legend-badge"><span class="legend-dot" style="background:#F59E0B"></span> 50 EMA</span>
+                  <span class="legend-badge"><span class="legend-dot" style="background:#3B82F6"></span> 200 EMA</span>
+                  <span class="legend-badge"><span class="legend-dot" style="background:#10B981"></span> Vol Spike (≥2x)</span>
+                </div>
+              </div>
+              <div class="chart-actions">
+                <button class="chart-tf active" data-tf="D">D</button>
+                <button class="chart-tf" data-tf="W">W</button>
+                <button class="chart-tf" data-tf="M">M</button>
+              </div>
+            </div>
+            <div id="tv-chart" class="tv-chart-container"></div>
+            <div class="chart-empty" id="chart-empty">
+              <div class="chart-empty-icon">📈</div>
+              <p>Select a stock to view its chart</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TRACKER PAGE -->
+      <div id="page-tracker" class="page hidden">
+        <div class="page-header">
+          <h1>Entry / Exit Tracker</h1>
+          <div class="tracker-controls">
+            <select id="tracker-filter-key" class="sector-select" onchange="Tracker.load()">
+              <option value="rs80_NSE_ema200">RS≥80 | NSE | Above EMA200</option>
+              <option value="rs80_BOTH_all">RS≥80 | NSE+BSE | All</option>
+            </select>
+            <select id="tracker-days" class="sector-select" onchange="Tracker.loadMovers()">
+              <option value="1">Last 1 day</option>
+              <option value="7" selected>Last 7 days</option>
+              <option value="30">Last 30 days</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Today's Changes -->
+        <div class="tracker-today">
+          <div class="tracker-section">
+            <div class="tracker-section-header entering">
+              <span>🟢 Entering List</span>
+              <span class="tracker-count" id="entering-count">0</span>
+            </div>
+            <div id="entering-list" class="tracker-tags"></div>
+          </div>
+          <div class="tracker-section">
+            <div class="tracker-section-header exiting">
+              <span>🔴 Exiting List</span>
+              <span class="tracker-count" id="exiting-count">0</span>
+            </div>
+            <div id="exiting-list" class="tracker-tags"></div>
+          </div>
+        </div>
+
+        <!-- Snapshot History Chart -->
+        <div class="tracker-history">
+          <h3>Screener Size Over Time</h3>
+          <div id="snapshot-chart" class="snapshot-chart-container"></div>
+        </div>
+
+        <!-- Recent Movers Table -->
+        <div class="tracker-movers">
+          <h3>Recent Movers</h3>
+          <div class="movers-grid">
+            <div class="movers-col">
+              <div class="movers-header entering">Entered</div>
+              <div id="movers-entering" class="movers-list"></div>
+            </div>
+            <div class="movers-col">
+              <div class="movers-header exiting">Exited</div>
+              <div id="movers-exiting" class="movers-list"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- COMPANY DETAIL PAGE -->
+      <div id="page-company" class="page hidden">
+        <div class="company-header" id="company-header">
+          <button class="back-btn" onclick="App.goBack()">← Back</button>
+          <div class="company-title">
+            <h1 id="company-name">—</h1>
+            <div class="company-meta" id="company-meta">—</div>
+          </div>
+          <div class="company-nav-tabs">
+            <button class="comp-tab active" data-tab="overview" onclick="CompanyPage.setTab('overview')">📈 Overview & Chart</button>
+            <button class="comp-tab" data-tab="financials" onclick="CompanyPage.setTab('financials')">📊 Financial Results</button>
+            <button class="comp-tab" data-tab="shareholding" onclick="CompanyPage.setTab('shareholding')">👥 Shareholding Pattern</button>
+          </div>
+          <div class="stock-search-wrap" style="width:240px;margin-left:auto;margin-right:16px;">
+            <span class="search-lens">🔍</span>
+            <input type="text" class="stock-search-input" id="company-search-input" placeholder="Search another stock..." autocomplete="off" />
+            <button class="search-clear-btn" id="company-search-clear" style="display:none;" onclick="SearchComponent.clear('company')">✕</button>
+            <div class="search-dropdown-menu hidden" id="company-search-dropdown"></div>
+          </div>
+          <div class="company-price-block">
+            <div class="company-price" id="company-price">—</div>
+            <div class="company-change" id="company-change">—</div>
+          </div>
+        </div>
+
+        <div class="company-body" id="company-body">
+          <!-- Overview Tab Pane -->
+          <div class="company-tab-pane active" id="comp-pane-overview">
+            <div class="company-layout">
+              <!-- Left: Stats -->
+              <div class="company-stats-panel">
+                <div class="stats-grid" id="company-stats-grid"></div>
+                <div class="returns-table" id="returns-table"></div>
+              </div>
+              <!-- Right: Full Chart -->
+              <div class="company-chart-panel">
+                <div class="chart-indicators" style="padding:8px 16px;background:var(--bg-secondary);border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:center;flex-shrink:0;">
+                  <span class="legend-badge"><span class="legend-dot" style="background:#F59E0B"></span> EMA 50</span>
+                  <span class="legend-badge"><span class="legend-dot" style="background:#3B82F6"></span> EMA 200</span>
+                  <span class="legend-badge"><span class="legend-dot" style="background:#10B981"></span> Vol Spike (≥2x)</span>
+                </div>
+                <div class="chart-canvas-wrapper">
+                  <div id="company-tv-chart" class="tv-chart-full"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Financial Results Tab Pane -->
+          <div class="company-tab-pane" id="comp-pane-financials">
+            <div class="company-section-header">
+              <div class="section-title-wrap">
+                <h2>Quarterly Financial Results</h2>
+                <span class="section-subtitle">Values reported in ₹ Crores (except EPS in ₹ and Margins in %)</span>
+              </div>
+              <div class="section-actions">
+                <button class="filter-chip" onclick="CompanyPage.refreshFinancials()" title="Force refresh from source">🔄 Refresh</button>
+              </div>
+            </div>
+            <div class="financials-table-wrapper" id="financials-container">
+              <div class="panel-loading"><div class="loading-spinner"></div></div>
+            </div>
+          </div>
+
+          <!-- Shareholding Pattern Tab Pane -->
+          <div class="company-tab-pane" id="comp-pane-shareholding">
+            <div class="company-section-header">
+              <div class="section-title-wrap">
+                <h2>Shareholding Pattern</h2>
+                <span class="section-subtitle" id="sh-as-of">Ownership breakdown between Promoter, FIIs, DIIs, Government & Public</span>
+              </div>
+              <div class="section-actions">
+                <button class="filter-chip" onclick="CompanyPage.refreshShareholding()" title="Force refresh from source">🔄 Refresh</button>
+              </div>
+            </div>
+
+            <!-- Visual Distribution Bar & Cards -->
+            <div class="sh-distribution-card" id="sh-distribution-card">
+              <div class="sh-progress-bar" id="sh-progress-bar"></div>
+              <div class="sh-cards-grid" id="sh-cards-grid"></div>
+            </div>
+
+            <!-- Historical Shareholding Table -->
+            <div class="shareholding-table-wrapper" id="shareholding-container">
+              <div class="panel-loading"><div class="loading-spinner"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+  <script src="/static/js/screener.js"></script>
+  <script src="/static/js/industries.js"></script>
+  <script src="/static/js/tracker.js"></script>
+  <script src="/static/js/chart.js"></script>
+  <script>
+    // Bootstrap app
+    App.init();
+  </script>
+</body>
+</html>
